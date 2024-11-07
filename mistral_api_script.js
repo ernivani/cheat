@@ -4,7 +4,7 @@
 // @version      2024-10-25
 // @description  Ask Mistral model questions via Ollama local API
 // @author       ernicani
-// @match        https://nowledgeable.com/*
+// @match        *://*/*
 // @grant        none
 // ==/UserScript==
 function getSelectionText() {
@@ -212,7 +212,6 @@ function getSelectionText() {
 
     // Ajouter des raccourcis clavier
     document.addEventListener("keydown", function (e) {
-        console.log(e);
         // Basculer la visibilité avec Ctrl + Alt + M
         if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "k") {
             e.preventDefault();

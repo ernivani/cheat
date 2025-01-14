@@ -11,9 +11,12 @@ const options = {
 
 // Function to interact with the Ollama API (or any other local API over HTTP)
 function askMistral(prompt, callback) {
+    const frenchContext = `Tu es un expert en programmation qui parle français. Tu dois répondre en français à toutes les questions, en te concentrant sur l'aspect technique et la programmation. Voici la question: ${prompt}`;
+    
     const postData = JSON.stringify({
-        model: "mistral",
-        prompt: prompt,
+        model: "phi4:latest",
+        prompt: frenchContext,
+        stream: true,
         max_tokens: 150,
     });
 
@@ -25,7 +28,6 @@ function askMistral(prompt, callback) {
         headers: {
             "Content-Type": "application/json",
             "Content-Length": Buffer.byteLength(postData),
-            // No 'Ollama-Stream' header means streaming is enabled by default
         },
     };
 
@@ -33,11 +35,10 @@ function askMistral(prompt, callback) {
         res.setEncoding("utf8");
 
         let buffer = "";
-        let responseText = "";
 
         res.on("data", (chunk) => {
             buffer += chunk;
-
+            
             // Split the buffer by newlines to get complete JSON objects
             let lines = buffer.split("\n");
             buffer = lines.pop(); // Keep the last partial line for the next chunk
@@ -47,7 +48,8 @@ function askMistral(prompt, callback) {
                     try {
                         let json = JSON.parse(line);
                         if (json.response) {
-                            responseText += json.response;
+                            // Send each chunk immediately to the client
+                            callback(null, { text: json.response, done: false });
                         }
                     } catch (e) {
                         console.error("Error parsing JSON line:", e);
@@ -62,14 +64,14 @@ function askMistral(prompt, callback) {
                 try {
                     let json = JSON.parse(buffer);
                     if (json.response) {
-                        responseText += json.response;
+                        callback(null, { text: json.response, done: false });
                     }
                 } catch (e) {
                     console.error("Error parsing JSON buffer at end:", e);
                 }
             }
-            // Return the aggregated response to the callback
-            callback(null, { text: responseText });
+            // Signal that the stream is complete
+            callback(null, { text: "", done: true });
         });
     });
 
@@ -111,25 +113,27 @@ https
                 const parsedBody = new URLSearchParams(body);
                 const prompt = parsedBody.get("prompt");
 
-                // Call the updated askMistral function
-                askMistral(prompt, (err, apiResponse) => {
+                // Set headers once before starting the stream
+                res.writeHead(200, {
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*"
+                });
+
+                // Call the updated askMistral function with streaming
+                askMistral(prompt, (err, response) => {
                     if (err) {
-                        res.writeHead(500, {
-                            "Content-Type": "application/json",
-                        });
-                        res.end(
-                            JSON.stringify({
-                                error:
-                                    "Error interacting with API: " +
-                                    err.message,
-                            })
-                        );
+                        res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+                        res.end();
                     } else {
-                        res.writeHead(200, {
-                            "Content-Type": "application/json",
-                            "Access-Control-Allow-Origin": "*", // Allow cross-origin requests
-                        });
-                        res.end(JSON.stringify({ response: apiResponse.text }));
+                        // Send the chunk as a Server-Sent Event
+                        res.write(`data: ${JSON.stringify(response)}\n\n`);
+                        
+                        // If this is the last chunk, end the response
+                        if (response.done) {
+                            res.end();
+                        }
                     }
                 });
             });

@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Mistral via Ollama Local API
+// @name         Chatbot via Ollama Local API
 // @namespace    http://tampermonkey.net/
 // @version      2024-10-25
-// @description  Ask Mistral model questions via Ollama local API
+// @description  Ask Chatbot model questions via Ollama local API
 // @author       ernicani
 // @match        *://*/*
 // @grant        none
@@ -25,16 +25,16 @@ function getSelectionText() {
     let container; // Déclarer le conteneur dans la portée globale
     let currentOpacity = 1.0; // Opacité par défaut
 
-    // Fonction pour initialiser l'interface Mistral
-    function initializeMistralInterface() {
+    // Fonction pour initialiser l'interface Chatbot
+    function initializeChatbotInterface() {
         // Vérifier si le script a déjà été injecté sur cette page
-        if (document.getElementById("mistral-container")) {
+        if (document.getElementById("chatbot-container")) {
             return; // Ne rien faire si le conteneur existe déjà
         }
 
         // Créer un conteneur pour le bouton et l'entrée
         container = document.createElement("div");
-        container.id = "mistral-container"; // Ajouter un ID pour référence future
+        container.id = "chatbot-container"; // Ajouter un ID pour référence future
         container.style.position = "fixed";
         container.style.bottom = "20px";
         container.style.right = "20px";
@@ -46,9 +46,9 @@ function getSelectionText() {
         container.style.opacity = currentOpacity; // Définir l'opacité initiale
         container.style.display = "None";
 
-        // Créer le bouton pour déclencher la conversation Mistral
+        // Créer le bouton pour déclencher la conversation Chatbot
         const button = document.createElement("button");
-        button.innerText = "Ask Mistral";
+        button.innerText = "Ask Chatbot";
         button.style.padding = "10px 20px";
         button.style.backgroundColor = "#4CAF50";
         button.style.color = "white";
@@ -58,13 +58,13 @@ function getSelectionText() {
 
         // Créer une zone de texte pour la saisie utilisateur
         const textarea = document.createElement("textarea");
-        textarea.placeholder = "Ask Mistral something...";
+        textarea.placeholder = "Ask Chatbot something...";
         textarea.style.width = "300px";
         textarea.style.height = "100px";
         textarea.style.marginTop = "10px";
         container.appendChild(textarea);
 
-        // Créer un div pour afficher la réponse de Mistral
+        // Créer un div pour afficher la réponse de Chatbot
         const responseDiv = document.createElement("div");
         responseDiv.style.marginTop = "10px";
         responseDiv.style.width = "300px";
@@ -82,7 +82,7 @@ function getSelectionText() {
         // Ajouter des styles personnalisés pour le formatage du code
         const style = document.createElement("style");
         style.textContent = `
-            .mistral-response pre {
+            .chatbot-response pre {
                 background-color: #f6f8fa;
                 padding: 10px;
                 overflow: auto;
@@ -91,7 +91,7 @@ function getSelectionText() {
                 white-space: pre-wrap;
                 word-wrap: break-word;
             }
-            .mistral-response code {
+            .chatbot-response code {
                 background-color: #f6f8fa;
                 padding: 2px 4px;
                 font-family: monospace;
@@ -116,14 +116,33 @@ function getSelectionText() {
             // Convertir le code en ligne (`code`) en <code>...</code>
             response = response.replace(/`([^`]+)`/g, "<code>$1</code>");
 
+            // Convertir les titres markdown (# Titre)
+            response = response.replace(/^(#{1,6})\s(.+)$/gm, function(match, hashes, title) {
+                const level = hashes.length;
+                return `<h${level}>${title}</h${level}>`;
+            });
+
+            // Convertir les listes à puces
+            response = response.replace(/^\*\s(.+)$/gm, '<li>$1</li>');
+            response = response.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+            // Convertir les liens markdown [texte](url)
+            response = response.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+            // Convertir le texte en gras **texte**
+            response = response.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+            // Convertir le texte en italique *texte*
+            response = response.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
             // Convertir les sauts de ligne en <br> pour les sauts de ligne appropriés
             response = response.replace(/\n/g, "<br>");
 
             return response;
         }
 
-        // Fonction pour appeler votre API Node.js et obtenir la réponse de Mistral
-        async function askMistral(prompt) {
+        // Fonction pour appeler votre API Node.js et obtenir la réponse de Chatbot
+        async function askChatbot(prompt) {
             try {
                 const response = await fetch("https://localhost:3000/ask", {
                     method: "POST",
@@ -137,38 +156,65 @@ function getSelectionText() {
                     throw new Error("Network response was not ok");
                 }
 
-                const data = await response.json();
-                return data.response; // Suppose que votre serveur renvoie { response: '...' }
+                const reader = response.body.getReader();
+                let fullResponse = "";
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    // Decode the chunk and split by SSE data markers
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.error) {
+                                    throw new Error(data.error);
+                                }
+                                if (!data.done) {
+                                    fullResponse += data.text;
+                                    // Update the response div with the accumulated text
+                                    responseDiv.innerHTML = formatResponse(fullResponse);
+                                    // Scroll to bottom to show new content
+                                    responseDiv.scrollTop = responseDiv.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.error("Error parsing SSE data:", e);
+                            }
+                        }
+                    }
+                }
+                
+                return fullResponse;
             } catch (error) {
                 throw error;
             }
         }
 
         // Déclencher l'appel API lorsque le bouton est cliqué
-        button.addEventListener("click", function () {
+        button.addEventListener("click", async function () {
             const question = textarea.value.trim() + getSelectionText();
             if (question) {
                 responseDiv.innerText = "Thinking...";
+                responseDiv.classList.add("chatbot-response");
 
-                // Appeler votre API locale Node.js et afficher la réponse
-                askMistral(question)
-                    .then((response) => {
-                        // Formater la réponse pour une meilleure lisibilité
-                        const formattedResponse = formatResponse(response);
-                        responseDiv.classList.add("mistral-response");
-                        responseDiv.innerHTML = formattedResponse;
-                    })
-                    .catch((err) => {
-                        responseDiv.innerText = "Error: " + err.message;
-                    });
+                try {
+                    await askChatbot(question);
+                } catch (err) {
+                    responseDiv.innerText = "Error: " + err.message;
+                }
             } else {
                 responseDiv.innerText = "Please enter a question.";
             }
         });
     }
 
-    // Fonction pour basculer la visibilité de l'interface Mistral
-    function toggleMistralInterface() {
+    // Fonction pour basculer la visibilité de l'interface Chatbot
+    function toggleChatbotInterface() {
         if (container) {
             if (container.style.display === "none") {
                 container.style.display = "block";
@@ -176,11 +222,11 @@ function getSelectionText() {
                 container.style.display = "none";
             }
         } else {
-            initializeMistralInterface();
+            initializeChatbotInterface();
         }
     }
 
-    // Fonction pour ajuster l'opacité de l'interface Mistral
+    // Fonction pour ajuster l'opacité de l'interface Chatbot
     function adjustOpacity(delta) {
         if (container) {
             currentOpacity = parseFloat(currentOpacity) + delta;
@@ -198,36 +244,41 @@ function getSelectionText() {
             const currentUrl = location.href;
             if (currentUrl !== lastUrl) {
                 lastUrl = currentUrl;
-                // L'URL a changé, réinitialiser l'interface Mistral
-                initializeMistralInterface();
+                // L'URL a changé, réinitialiser l'interface Chatbot
+                initializeChatbotInterface();
             }
         }).observe(document.body, { childList: true, subtree: true });
     }
 
     // Initialiser l'interface une fois au démarrage
-    initializeMistralInterface();
+    initializeChatbotInterface();
 
     // Observer les changements d'URL pour réinitialiser lors de la navigation dans les SPA
     observeUrlChanges();
 
     // Ajouter des raccourcis clavier
     document.addEventListener("keydown", function (e) {
-        // Basculer la visibilité avec Ctrl + Alt + M
-        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "k") {
+        // Basculer la visibilité avec Meta+Shift+K (macOS) ou Ctrl+Alt+K (Windows)
+        if ((e.metaKey && e.shiftKey || e.ctrlKey && e.altKey) && e.key.toLowerCase() === "k") {
             e.preventDefault();
-            toggleMistralInterface();
+            toggleChatbotInterface();
         }
 
-        // Augmenter l'opacité avec Ctrl + Alt + Flèche Haut
-        if (e.ctrlKey && e.altKey && e.key === "ArrowUp") {
+        // Augmenter l'opacité avec Meta+Shift+↑ (macOS) ou Ctrl+Alt+↑ (Windows)
+        if ((e.metaKey && e.shiftKey || e.ctrlKey && e.altKey) && e.key === "ArrowUp") {
             e.preventDefault();
-            adjustOpacity(0.1); // Augmenter l'opacité de 0.1
+            adjustOpacity(0.1);
         }
 
-        // Diminuer l'opacité avec Ctrl + Alt + Flèche Bas
-        if (e.ctrlKey && e.altKey && e.key === "ArrowDown") {
+        // Diminuer l'opacité avec Meta+Shift+↓ (macOS) ou Ctrl+Alt+↓ (Windows)
+        if ((e.metaKey && e.shiftKey || e.ctrlKey && e.altKey) && e.key === "ArrowDown") {
             e.preventDefault();
-            adjustOpacity(-0.1); // Diminuer l'opacité de 0.1
+            adjustOpacity(-0.1);
+        }
+
+        if (e.key === "Enter") {
+            e.preventDefault();
+            button.click();
         }
     });
 })();

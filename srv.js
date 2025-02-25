@@ -14,7 +14,7 @@ function askMistral(prompt, callback) {
     const frenchContext = `Tu es un expert en programmation qui parle français. Tu dois répondre en français à toutes les questions, en te concentrant sur l'aspect technique et la programmation. Voici la question: ${prompt}`;
     
     const postData = JSON.stringify({
-        model: "phi4:latest",
+        model: "deepseek-r1:latest",
         prompt: frenchContext,
         stream: true,
         max_tokens: 150,
@@ -86,7 +86,27 @@ function askMistral(prompt, callback) {
 // Create the HTTPS server
 https
     .createServer(options, (req, res) => {
-        if (req.method === "GET" && req.url === "/") {
+        // Set CORS headers for all responses
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        
+        // Handle preflight OPTIONS requests
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
+        
+        // Health check endpoint
+        if (req.method === "GET" && req.url === "/health") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ 
+                status: "ok", 
+                timestamp: new Date().toISOString(),
+                message: "API server is running"
+            }));
+        } else if (req.method === "GET" && req.url === "/") {
             // Serve the HTML form (you can remove this if not needed)
             res.writeHead(200, { "Content-Type": "text/html" });
             res.write(`

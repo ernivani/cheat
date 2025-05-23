@@ -1,3 +1,6 @@
 node_modules
 *.pem
 package-lock.json
+
+TMP/*
+.DS_Store

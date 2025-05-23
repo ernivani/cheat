@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BlockGuard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --color-primary: #6366f1;
+      --color-primary-glow: rgba(99, 102, 241, 0.3);
+      --color-secondary: #c084fc;
+      --color-accent: #06b6d4;
+      --color-background: #f8fafc;
+      --color-card: #ffffff;
+      --color-text: #0f172a;
+      --color-text-secondary: #64748b;
+      --color-border: #e2e8f0;
+      --color-error: #ef4444;
+      --color-success: #10b981;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+      --shadow-glow: 0 0 15px var(--color-primary-glow);
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-full: 9999px;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 3px var(--color-primary-glow)); }
+      50% { filter: drop-shadow(0 0 8px var(--color-primary-glow)); }
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -468px 0; }
+      100% { background-position: 468px 0; }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    @keyframes ping {
+      0% { transform: scale(1); opacity: 1; }
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      width: 360px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--color-text);
+      background-color: var(--color-background);
+      background-image: 
+        radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(192, 132, 252, 0.05), transparent 30%);
+      padding: 24px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+      opacity: 0.5;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .logo-wrapper {
+      position: relative;
+    }
+    
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      z-index: 2;
+      position: relative;
+      animation: float 6s ease-in-out infinite, glow 4s ease-in-out infinite;
+    }
+    
+    .logo-bg {
+      position: absolute;
+      top: -5px;
+      left: -5px;
+      width: 46px;
+      height: 46px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));
+      opacity: 0.2;
+      filter: blur(10px);
+      z-index: 1;
+    }
+    
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(to right, var(--color-text) 20%, var(--color-primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      position: relative;
+    }
+    
+    .status-wrapper {
+      position: relative;
+    }
+    
+    .toggle-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      background-color: #e2e8f0;
+      border-radius: var(--radius-full);
+      transition: all 0.3s ease;
+      border: 1px solid var(--color-border);
+      overflow: hidden;
+    }
+    
+    .toggle:before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: all 0.4s cubic-bezier(0.3, 1.5, 0.7, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      z-index: 2;
+    }
+    
+    input:checked + .toggle {
+      background-color: var(--color-primary);
+    }
+    
+    input:checked + .toggle:before {
+      transform: translateX(24px);
+      background: #ffffff;
+    }
+    
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    input:checked + .toggle::after {
+      opacity: 1;
+    }
+    
+    .live-indicator {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--color-success);
+      z-index: 3;
+    }
+    
+    .live-indicator::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background-color: var(--color-success);
+      z-index: 2;
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    
+    .stats-card {
+      background-color: var(--color-card);
+      border-radius: var(--radius-lg);
+      margin-bottom: 24px;
+      padding: 20px;
+      position: relative;
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      animation: slideIn 0.5s ease-out forwards;
+    }
+    
+    .stats-card::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, var(--color-primary), var(--color-secondary), var(--color-accent), var(--color-primary));
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+      z-index: -1;
+      border-radius: calc(var(--radius-lg) + 2px);
+      opacity: 0.1;
+    }
+    
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .stats-title {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .stats-icon {
+      width: 24px;
+      height: 24px;
+      color: var(--color-primary);
+    }
+    
+    .big-number {
+      font-size: 48px;
+      font-weight: 800;
+      background: linear-gradient(to right, var(--color-primary), var(--color-secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+      margin: 10px 0;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .big-number::after {
+      content: '';
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--color-primary), transparent);
+      border-radius: 50%;
+      filter: blur(25px);
+      z-index: -1;
+      opacity: 0.2;
+      left: 10px;
+      top: 10px;
+    }
+    
+    .stats-meta {
+      display: flex;
+      align-items: center;
+      color: var(--color-text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .progress-container {
+      height: 6px;
+      background-color: #f1f5f9;
+      border-radius: var(--radius-full);
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      width: 72%;
+      background: linear-gradient(to right, var(--color-primary), var(--color-secondary));
+      border-radius: var(--radius-full);
+      position: relative;
+    }
+    
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+      animation: shimmer 2s infinite;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .stat-item {
+      background-color: var(--color-card);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+      animation: slideIn 0.7s ease-out forwards;
+    }
+    
+    .stat-item:nth-child(1) {
+      animation-delay: 0.1s;
+    }
+    
+    .stat-item:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    .stat-item:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+    
+    .stat-item:nth-child(4) {
+      animation-delay: 0.4s;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 4px 0;
+      position: relative;
+      z-index: 1;
+      color: var(--color-text);
+    }
+    
+    .stat-value::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    
+    .stat-item:nth-child(1) .stat-value::before {
+      background: var(--color-primary);
+      box-shadow: 0 0 10px var(--color-primary-glow);
+    }
+    
+    .stat-item:nth-child(2) .stat-value::before {
+      background: var(--color-secondary);
+      box-shadow: 0 0 10px rgba(192, 132, 252, 0.4);
+    }
+    
+    .stat-item:nth-child(3) .stat-value::before {
+      background: var(--color-accent);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+    }
+    
+    .stat-item:nth-child(4) .stat-value::before {
+      background: var(--color-success);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+    }
+    
+    .stat-label {
+      color: var(--color-text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .real-time-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 9px;
+      color: var(--color-text-secondary);
+      background-color: rgba(99, 102, 241, 0.1);
+      padding: 2px 6px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .real-time-dot {
+      width: 4px;
+      height: 4px;
+      background-color: var(--color-success);
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .asset-card {
+      background-color: var(--color-card);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-card);
+      position: relative;
+      animation: slideIn 0.9s ease-out forwards;
+    }
+    
+    .asset-card::before {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+      top: 0;
+      left: 0;
+      opacity: 0.5;
+    }
+    
+    .asset-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .asset-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--color-text-secondary);
+    }
+    
+    .asset-row {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid var(--color-border);
+      transition: background-color 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .asset-row:hover {
+      background-color: rgba(0, 0, 0, 0.01);
+    }
+    
+    .asset-row:last-child {
+      border-bottom: none;
+    }
+    
+    .asset-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 16px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(192, 132, 252, 0.05));
+      border: 1px solid var(--color-border);
+      position: relative;
+    }
+    
+    .asset-icon svg {
+      width: 20px;
+      height: 20px;
+      color: var(--color-primary);
+      z-index: 1;
+    }
+    
+    .asset-info {
+      flex: 1;
+    }
+    
+    .asset-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 2px;
+      color: var(--color-text);
+    }
+    
+    .asset-amount {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+    }
+    
+    .asset-value {
+      text-align: right;
+    }
+    
+    .asset-price {
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--color-text);
+    }
+    
+    .asset-change {
+      font-size: 13px;
+      color: var(--color-error);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+    
+    .last-update {
+      font-size: 11px;
+      color: var(--color-text-secondary);
+      text-align: center;
+      margin-top: 8px;
+    }
+    
+    .footer {
+      margin-top: 28px;
+      position: relative;
+    }
+    
+    .reload-btn {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 0;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .reload-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+    
+    .reload-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+      );
+      transition: all 0.4s ease;
+    }
+    
+    .reload-btn:hover::before {
+      left: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="logo-wrapper">
+        <div class="logo-bg"></div>
+        <img src="icons/icon48.png" alt="BlockGuard Logo" class="logo">
+      </div>
+      <h1>BlockGuard</h1>
+    </div>
+    <div class="status-wrapper">
+      <div class="live-indicator"></div>
+      <label class="toggle-container">
+        <input type="checkbox" checked>
+        <span class="toggle"></span>
+      </label>
+    </div>
+  </div>
+  
+  <div class="stats-card">
+    <div class="stats-header">
+      <div class="stats-title">Shield Status</div>
+      <svg class="stats-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L4 5.4V11.4C4 16.4 7.4 21 12 22C16.6 21 20 16.4 20 11.4V5.4L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="big-number">1,281</div>
+    <div class="stats-meta">Protection is active</div>
+    <div class="progress-container">
+      <div class="progress-bar"></div>
+    </div>
+  </div>
+  
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-label">Ads Blocked</div>
+      <div class="stat-value">839</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Trackers</div>
+      <div class="stat-value">328</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Data Saved</div>
+      <div class="stat-value">25.4 MB</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Time Saved</div>
+      <div class="stat-value">1.2 hrs</div>
+    </div>
+  </div>
+  
+  <div class="asset-card">
+    <div class="asset-header">
+      <div class="asset-title">Today's Activity</div>
+    </div>
+    <div class="asset-row">
+      <div class="asset-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="asset-info">
+        <div class="asset-name">Ads blocked</div>
+      </div>
+      <div class="asset-value">
+        <div class="asset-price">0</div>
+        <div class="asset-change">+0.0%</div>
+      </div>
+    </div>
+    <div class="asset-row">
+      <div class="asset-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 12L19 19M5 19L12 12L5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="asset-info">
+        <div class="asset-name">Trackers stopped</div>
+      </div>
+      <div class="asset-value">
+        <div class="asset-price">0</div>
+      </div>
+    </div>
+    <div class="asset-row">
+      <div class="asset-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 7L15 9L13 11M11 17L9 15L11 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 12C3 8 5 4.5 12 4.5C19 4.5 21 8 21 12C21 16 19 19.5 12 19.5C5 19.5 3 16 3 12Z" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="asset-info">
+        <div class="asset-name">Data saved</div>
+      </div>
+      <div class="asset-value">
+        <div class="asset-price">0.0 MB</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <button class="reload-btn" id="reload-extension">
+      Refresh Protection
+    </button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 
